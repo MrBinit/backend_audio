@@ -8,24 +8,27 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import sessionmaker
 from models import Video, Base
 from database import engine, async_session
+from pydub import AudioSegment
+from pydub.silence import split_on_silence
+from audio_chunker import process_single_audio  
 
 app = FastAPI()
 
 # Ensure the table is created on startup
 @app.on_event("startup")
 async def startup_event():
-    # Use sync engine for schema creation
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
 def sanitize_filename(s):
-    # Replace invalid characters with underscores
     return re.sub(r'[\\/*?:"<>|]', "_", s)
 
-# Endpoint to download audio and save data to the database
+
 @app.get("/download_audio")
 async def download_audio(youtube_url: str = Query(..., description="The YouTube video URL")):
     output_directory = '/Users/mrbinit/Desktop/untitled folder/datasets'
+    chunk_output_directory = '/Users/mrbinit/Desktop/untitled folder/output_chunk'
+    csv_file_path = '/Users/mrbinit/Desktop/untitled folder/output_chunk/file_uuids.csv'
 
     # Create the output directory if it doesn't exist
     if not os.path.exists(output_directory):
@@ -34,7 +37,7 @@ async def download_audio(youtube_url: str = Query(..., description="The YouTube 
     # Set up yt-dlp options
     ydl_opts = {
         'format': 'bestaudio/best',
-        'outtmpl': f'{output_directory}/%(title)s.mp3',  # Force output to .mp3
+        'outtmpl': f'{output_directory}/%(title)s',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
@@ -42,7 +45,6 @@ async def download_audio(youtube_url: str = Query(..., description="The YouTube 
         }],
     }
 
-    # Download the audio
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             print(f"Downloading audio from: {youtube_url}")
@@ -53,10 +55,12 @@ async def download_audio(youtube_url: str = Query(..., description="The YouTube 
         print(f"Failed to download from {youtube_url}. Error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to download. Error: {e}")
 
-    # Sanitize the video title to create a safe file name
     video_title_sanitized = sanitize_filename(video_title)
     file_name = f"{video_title_sanitized}.mp3"
     file_path = os.path.join(output_directory, file_name)
+
+    # Chunk the downloaded audio
+    process_single_audio(file_path, chunk_output_directory, csv_file_path)
 
     # Generate a UUID for the video
     video_uuid = str(uuid.uuid4())
@@ -77,5 +81,6 @@ async def download_audio(youtube_url: str = Query(..., description="The YouTube 
         "uuid": video_uuid,
         "video_url": youtube_url,
         "video_name": video_title,
-        "file_path": file_path
+        "file_path": file_path,
+        "chunk_output_directory": chunk_output_directory  # Return chunk directory
     }

@@ -1,3 +1,4 @@
+# audio_chunker.py
 import os
 import uuid
 import csv
@@ -70,6 +71,11 @@ def save_uuid_to_csv(file_path, filename, file_uuid):
         csv_writer.writerow([filename, file_uuid])
 
 def process_single_audio(input_file, output_base_directory, csv_file_path):
+    print("input files:", input_file)
+    print(output_base_directory, output_base_directory)
+
+
+
     existing_uuids = read_existing_uuids(csv_file_path)
 
     # Generate UUID for the audio file
@@ -99,12 +105,3 @@ def process_single_audio(input_file, output_base_directory, csv_file_path):
 
     print(f"All chunks for {filename} have been saved in the folder: {uuid_directory}")
     print(f"File UUID has been saved in: {csv_file_path}")
-
-
-# Define the input file and output directories
-input_file = '/Users/mrbinit/Desktop/untitled folder/datasets/｜｜tum todo na｜｜ Anushka gautam｜｜ short guitar cover｜｜.mp3.mp3'
-output_base_directory = '/Users/mrbinit/Desktop/untitled folder/output_chunk'
-csv_file_path = '/Users/mrbinit/Desktop/untitled folder/output_chunk/file_uuids.csv'
-
-# Process the single audio file and save chunks in the UUID-named folder
-process_single_audio(input_file, output_base_directory, csv_file_path)
