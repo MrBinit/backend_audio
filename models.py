@@ -25,5 +25,5 @@ class Video(Base):
     UUID = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), nullable=False)
     video_url = Column(String(200), unique=True, nullable=False)
     video_name = Column(String(200), nullable=True)
-    file_path = Column(String(200), nullable=False)
+    chunk_output_directory = Column(String(200), nullable=False)
 

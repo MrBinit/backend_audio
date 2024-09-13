@@ -23,7 +23,6 @@ async def startup_event():
 def sanitize_filename(s):
     return re.sub(r'[\\/*?:"<>|]', "_", s)
 
-
 @app.get("/download_audio")
 async def download_audio(youtube_url: str = Query(..., description="The YouTube video URL")):
     output_directory = '/Users/mrbinit/Desktop/untitled folder/datasets'
@@ -59,11 +58,18 @@ async def download_audio(youtube_url: str = Query(..., description="The YouTube 
     file_name = f"{video_title_sanitized}.mp3"
     file_path = os.path.join(output_directory, file_name)
 
-    # Chunk the downloaded audio
-    process_single_audio(file_path, chunk_output_directory, csv_file_path)
-
     # Generate a UUID for the video
     video_uuid = str(uuid.uuid4())
+
+    # Create a unique folder named with the UUID inside the chunk output directory
+    uuid_folder_path = os.path.join(chunk_output_directory, video_uuid)
+
+    # Create the UUID folder if it doesn't exist
+    if not os.path.exists(uuid_folder_path):
+        os.makedirs(uuid_folder_path)
+
+    # Chunk the downloaded audio and save in the UUID folder
+    process_single_audio(file_path, uuid_folder_path, csv_file_path)
 
     # Insert data into the database
     async with async_session() as session:
@@ -72,7 +78,7 @@ async def download_audio(youtube_url: str = Query(..., description="The YouTube 
                 UUID=video_uuid,
                 video_url=youtube_url,
                 video_name=video_title,
-                file_path=file_path
+                chunk_output_directory=uuid_folder_path  # Save UUID folder path
             )
             session.add(new_video)
         await session.commit()
@@ -81,6 +87,5 @@ async def download_audio(youtube_url: str = Query(..., description="The YouTube 
         "uuid": video_uuid,
         "video_url": youtube_url,
         "video_name": video_title,
-        "file_path": file_path,
-        "chunk_output_directory": chunk_output_directory  # Return chunk directory
+        "chunk_output_directory": uuid_folder_path  # Return UUID folder path
     }
