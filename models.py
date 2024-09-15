@@ -1,19 +1,3 @@
-# # models.py
-# from sqlalchemy import Column, String, MetaData, Table
-
-# # Metadata instance
-# metadata = MetaData()
-
-# # Define the database table
-# videos_table = Table(
-#     'videos',
-#     metadata,
-#     Column('uuid', String, primary_key=True),
-#     Column('video_url', String),
-#     Column('video_name', String),
-#     Column('file_path', String)
-# )
-
 import uuid
 from sqlalchemy import Column, String
 from sqlalchemy.ext.declarative import declarative_base
@@ -27,3 +11,9 @@ class Video(Base):
     video_name = Column(String(200), nullable=True)
     chunk_output_directory = Column(String(200), nullable=False)
 
+class Download_videos(Base):
+    __tablename__ = "download_videos"
+    uuid = Column(String, primary_key=True, index=True)
+    name = Column(String, index=True)
+    url = Column(String, index=True)
+    location = Column(String)
