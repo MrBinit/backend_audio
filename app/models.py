@@ -1,15 +1,8 @@
-import uuid
-from sqlalchemy import Column, String
-from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
-
-class Video(Base):
-    __tablename__ = 'videos'
-    UUID = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), nullable=False)
-    video_url = Column(String(200), unique=True, nullable=False)
-    video_name = Column(String(200), nullable=True)
-    chunk_output_directory = Column(String(200), nullable=False)
+# models.py
+import uuid  # Make sure this import is here
+from sqlalchemy import Column, String, ForeignKey
+from sqlalchemy.orm import relationship
+from app.database import Base
 
 class Download_videos(Base):
     __tablename__ = "download_videos"
@@ -17,3 +10,12 @@ class Download_videos(Base):
     video_name = Column(String, index=True)
     video_url = Column(String, index=True)
     location = Column(String)
+
+    # Establish relationship with AudioChunks
+    chunks = relationship("AudioChunks", backref="video")
+
+class AudioChunks(Base):
+    __tablename__ = "audio_chunks"
+    chunk_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))  # Ensure uuid is properly used here
+    video_uuid = Column(String, ForeignKey('download_videos.uuid'), nullable=False)
+    file_path = Column(String, nullable=False)
