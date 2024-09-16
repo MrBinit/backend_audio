@@ -1,5 +1,6 @@
+# models.py
 import uuid
-from sqlalchemy import Column, String, ForeignKey, Integer
+from sqlalchemy import Column, String, ForeignKey, Integer, Text
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -20,3 +21,4 @@ class AudioChunks(Base):
     video_id = Column(Integer, ForeignKey('download_videos.id'), nullable=False)  # Foreign key to id
     video_uuid = Column(String, nullable=False)  # Keep the UUID for reference
     file_path = Column(String, nullable=False)
+    transcribe = Column(Text, nullable=True)  # New transcribe column, nullable
