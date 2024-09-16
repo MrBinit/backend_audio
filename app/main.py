@@ -8,6 +8,7 @@ from sqlalchemy.future import select
 from app.models import Download_videos, Base
 from app.database import engine, async_session
 from app.topics import topics_to_download
+from app.core.config import OUTPUT_DIRECTORY
 
 app = FastAPI()
 
@@ -36,7 +37,7 @@ async def download_audio_by_url(youtube_url: str = Query(..., description="The Y
     return result
 
 async def download_audio(query: str, is_url: bool):
-    output_directory = '/Users/mrbinit/Desktop/untitled folder/datasets'
+    output_directory = OUTPUT_DIRECTORY
 
     # Create the output directory if it doesn't exist
     if not os.path.exists(output_directory):

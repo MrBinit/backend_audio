@@ -1,0 +1,6 @@
+OUTPUT_DIRECTORY = '/Users/mrbinit/Desktop/untitled folder/datasets'
+POSTGRES_USER='postgres'
+POSTGRES_PASSWORD='admin123'
+POSTGRES_HOST='localhost'
+POSTGRES_PORT='5432'
+POSTGRES_DB='binit'
