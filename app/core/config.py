@@ -1,4 +1,5 @@
-OUTPUT_DIRECTORY = '/Users/mrbinit/Desktop/untitled folder/datasets'
+ORIGINAL_DIRECTORY = '/Users/mrbinit/Desktop/untitled folder/datasets'
+CHUNK_OUTPUT = '/Users/mrbinit/Desktop/untitled folder/output_chunk'
 POSTGRES_USER='postgres'
 POSTGRES_PASSWORD='admin123'
 POSTGRES_HOST='localhost'

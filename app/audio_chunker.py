@@ -71,11 +71,7 @@ def save_uuid_to_csv(file_path, filename, file_uuid):
         csv_writer.writerow([filename, file_uuid])
 
 def process_single_audio(input_file, output_base_directory, csv_file_path):
-    print("input files:", input_file)
-    print(output_base_directory, output_base_directory)
-
-
-
+    print("Processing file:", input_file)
     existing_uuids = read_existing_uuids(csv_file_path)
 
     # Generate UUID for the audio file
@@ -105,3 +101,13 @@ def process_single_audio(input_file, output_base_directory, csv_file_path):
 
     print(f"All chunks for {filename} have been saved in the folder: {uuid_directory}")
     print(f"File UUID has been saved in: {csv_file_path}")
+
+def process_all_audios(input_directory, output_base_directory, csv_file_path):
+    results = []
+    for root, dirs, files in os.walk(input_directory):
+        for file in files:
+            if file.lower().endswith(('.mp3', '.wav', '.flac', '.ogg')):
+                input_file = os.path.join(root, file)
+                process_single_audio(input_file, output_base_directory, csv_file_path)
+                results.append(file)
+    return results

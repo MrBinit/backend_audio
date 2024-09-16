@@ -7,14 +7,14 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.models import Download_videos
-from app.core.config import OUTPUT_DIRECTORY
+from app.core.config import ORIGINAL_DIRECTORY
 from app.database import async_session
 
 def sanitize_filename(s):
     return re.sub(r'[\\/*?:"<>|]', "_", s)
 
 async def download_audio(query: str, is_url: bool):
-    output_directory = OUTPUT_DIRECTORY
+    output_directory = ORIGINAL_DIRECTORY
 
     # Create the output directory if it doesn't exist
     if not os.path.exists(output_directory):
