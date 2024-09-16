@@ -10,8 +10,8 @@ def dynamic_silence_thresh(audio_segment, target_dbfs=-40):
     return max(target_dbfs, average_dbfs - 10)
 
 def chunk_audio(input_file, 
-                min_duration=6000, 
-                max_duration=18000, 
+                min_duration=6000,  # in milliseconds
+                max_duration=18000,  # in milliseconds
                 target_dbfs=-40,
                 keep_silence=500, 
                 overlap=0):
@@ -33,21 +33,21 @@ def chunk_audio(input_file,
     current_chunk = AudioSegment.empty()
     
     for chunk in chunks:
-        if len(current_chunk) + len(chunk) - overlap <= max_duration:
-            current_chunk += chunk
+        if len(chunk) < min_duration:
+            # Skip chunks that are too short
+            continue
+        
+        if len(chunk) > max_duration:
+            # Split this chunk further if it's longer than max_duration
+            start = 0
+            while start < len(chunk):
+                end = start + max_duration
+                sub_chunk = chunk[start:end]
+                if len(sub_chunk) >= min_duration:
+                    output_chunks.append(sub_chunk)
+                start += max_duration - overlap
         else:
-            if len(current_chunk) >= min_duration:
-                output_chunks.append(current_chunk)
-            current_chunk = chunk
-    
-    if len(current_chunk) >= min_duration:
-        output_chunks.append(current_chunk)
-    
-    if len(current_chunk) < min_duration and output_chunks:
-        output_chunks[-1] += current_chunk
-
-    if overlap > 0:
-        output_chunks = [chunk[:-overlap] for chunk in output_chunks[:-1]] + [output_chunks[-1]]
+            output_chunks.append(chunk)
 
     return output_chunks
 
