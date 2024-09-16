@@ -75,11 +75,12 @@ def save_uuid_to_csv(file_path, filename, file_uuid):
             csv_writer.writerow(['Filename', 'UUID'])
         csv_writer.writerow([filename, file_uuid])
 
-async def save_chunk_to_db(video_uuid, file_path):
+async def save_chunk_to_db(video_id, video_uuid, file_path):
     async with async_session() as session:
         async with session.begin():
             new_chunk = AudioChunks(
-                video_uuid=video_uuid,
+                video_id=video_id,  # Save using video_id
+                video_uuid=video_uuid,  # Save using video_uuid
                 file_path=file_path
             )
             session.add(new_chunk)
@@ -95,7 +96,8 @@ async def save_video_to_db(file_uuid, filename):
                 location=''  # Set the location if needed
             )
             session.add(new_video)
-        await session.commit()
+        await session.flush()  # This will allow us to access new_video.id without committing
+        return new_video.id  # Return the new video's id
 
 async def process_single_audio(input_file, output_base_directory, csv_file_path):
     print("Processing file:", input_file)
@@ -110,8 +112,8 @@ async def process_single_audio(input_file, output_base_directory, csv_file_path)
         print(f"Skipping {filename} as it has already been processed with UUID {file_uuid}.")
         return
 
-    # Save the video to the database
-    await save_video_to_db(file_uuid, filename)
+    # Save the video to the database and get the video ID
+    video_id = await save_video_to_db(file_uuid, filename)
 
     # Create a folder named after the UUID
     uuid_directory = os.path.join(output_base_directory, file_uuid)
@@ -130,7 +132,7 @@ async def process_single_audio(input_file, output_base_directory, csv_file_path)
         print(f"Saved {chunk_filename}, duration: {len(chunk) / 1000:.2f} seconds")
 
         # Save chunk info to the database
-        await save_chunk_to_db(file_uuid, chunk_filename)  # Ensure this is awaited
+        await save_chunk_to_db(video_id, file_uuid, chunk_filename)  # Use video_id and video_uuid
 
     print(f"All chunks for {filename} have been saved in the folder: {uuid_directory}")
     print(f"File UUID has been saved in: {csv_file_path}")
