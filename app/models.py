@@ -5,7 +5,7 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 class Video(Base):
-    __tablename__ = 'chunk_videos'
+    __tablename__ = 'videos'
     UUID = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), nullable=False)
     video_url = Column(String(200), unique=True, nullable=False)
     video_name = Column(String(200), nullable=True)
@@ -16,4 +16,4 @@ class Download_videos(Base):
     uuid = Column(String, primary_key=True, index=True)
     video_name = Column(String, index=True)
     video_url = Column(String, index=True)
-    video_location = Column(String)
+    location = Column(String)
