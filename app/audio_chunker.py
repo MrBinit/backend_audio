@@ -1,7 +1,5 @@
-# audio_chunker.py
 import os
 import uuid
-import csv
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,24 +54,13 @@ def chunk_audio(input_file,
 
     return output_chunks
 
-def read_existing_uuids(csv_file_path):
-    existing_uuids = set()
-    if os.path.isfile(csv_file_path):
-        with open(csv_file_path, mode='r', newline='') as csv_file:
-            csv_reader = csv.reader(csv_file)
-            next(csv_reader, None)  # Skip header
-            for row in csv_reader:
-                if len(row) >= 2:
-                    existing_uuids.add(row[1])
-    return existing_uuids
-
-def save_uuid_to_csv(file_path, filename, file_uuid):
-    file_exists = os.path.isfile(file_path)
-    with open(file_path, mode='a', newline='') as csv_file:
-        csv_writer = csv.writer(csv_file)
-        if not file_exists:
-            csv_writer.writerow(['Filename', 'UUID'])
-        csv_writer.writerow([filename, file_uuid])
+async def check_if_processed(filename):
+    """Check if the audio file has already been processed."""
+    async with async_session() as session:
+        async with session.begin():
+            stmt = select(Download_videos).where(Download_videos.video_name == filename)
+            result = await session.execute(stmt)
+            return result.scalars().first()
 
 async def save_chunk_to_db(video_id, video_uuid, file_path):
     async with async_session() as session:
@@ -97,20 +84,22 @@ async def save_video_to_db(file_uuid, filename):
             )
             session.add(new_video)
         await session.flush()  # This will allow us to access new_video.id without committing
-        return new_video.id  # Return the new video's id
+            # Return the new video's id
+        return new_video.id
 
-async def process_single_audio(input_file, output_base_directory, csv_file_path):
-    print("Processing file:", input_file)
-    existing_uuids = read_existing_uuids(csv_file_path)
+async def process_single_audio(input_file, output_base_directory):
+    filename = os.path.basename(input_file)
+
+    # Check if this audio file has already been processed
+    processed_video = await check_if_processed(filename)
+    if processed_video:
+        print(f"Skipping {filename} as it has already been processed.")
+        return
+
+    print(f"Processing file: {filename}")
 
     # Generate UUID for the audio file
     file_uuid = str(uuid.uuid4())
-    filename = os.path.basename(input_file)
-
-    # Skip if the file has been processed before
-    if file_uuid in existing_uuids:
-        print(f"Skipping {filename} as it has already been processed with UUID {file_uuid}.")
-        return
 
     # Save the video to the database and get the video ID
     video_id = await save_video_to_db(file_uuid, filename)
@@ -118,9 +107,6 @@ async def process_single_audio(input_file, output_base_directory, csv_file_path)
     # Create a folder named after the UUID
     uuid_directory = os.path.join(output_base_directory, file_uuid)
     os.makedirs(uuid_directory, exist_ok=True)
-
-    # Save UUID and filename to the CSV
-    save_uuid_to_csv(csv_file_path, filename, file_uuid)
 
     # Chunk the audio
     chunks = chunk_audio(input_file, min_duration=6000, max_duration=18000, target_dbfs=-40, keep_silence=500, overlap=1000)
@@ -135,14 +121,13 @@ async def process_single_audio(input_file, output_base_directory, csv_file_path)
         await save_chunk_to_db(video_id, file_uuid, chunk_filename)  # Use video_id and video_uuid
 
     print(f"All chunks for {filename} have been saved in the folder: {uuid_directory}")
-    print(f"File UUID has been saved in: {csv_file_path}")
 
-async def process_all_audios(input_directory, output_base_directory, csv_file_path):
+async def process_all_audios(input_directory, output_base_directory):
     results = []
     for root, dirs, files in os.walk(input_directory):
         for file in files:
             if file.lower().endswith(('.mp3', '.wav', '.flac', '.ogg')):
                 input_file = os.path.join(root, file)
-                await process_single_audio(input_file, output_base_directory, csv_file_path)
+                await process_single_audio(input_file, output_base_directory)
                 results.append(file)
     return results

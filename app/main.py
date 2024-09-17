@@ -36,6 +36,6 @@ async def chunk_audios():
     output_directory = "/Users/mrbinit/Desktop/untitled folder/output_chunk"
     csv_file_path = os.path.join(output_directory, "audio_chunks.csv")
     
-    # Ensure the call to process_all_audios is awaited
-    processed_files = await process_all_audios(input_directory, output_directory, csv_file_path)
+    # Call with the correct number of arguments
+    processed_files = await process_all_audios(input_directory, output_directory)
     return {"processed_files": processed_files}
