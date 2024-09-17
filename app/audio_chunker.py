@@ -12,8 +12,8 @@ def dynamic_silence_thresh(audio_segment, target_dbfs=-40):
     return max(target_dbfs, average_dbfs - 10)
 
 def chunk_audio(input_file, 
-                min_duration=6000,  # Minimum chunk duration in milliseconds (6 seconds)
-                max_duration=18000,  # Maximum chunk duration in milliseconds (18 seconds)
+                min_duration=6000,  
+                max_duration=18000,  
                 target_dbfs=-40,
                 keep_silence=500, 
                 overlap=0):
@@ -54,44 +54,51 @@ def chunk_audio(input_file,
 
     return output_chunks
 
-async def check_if_processed(filename):
-    """Check if the audio file has already been processed."""
+async def check_if_processed(file_location):
+    """Check if the audio file has already been processed using its location."""
+    # Normalize the file location path
+    normalized_location = os.path.normpath(file_location)
     async with async_session() as session:
         async with session.begin():
-            stmt = select(Download_videos).where(Download_videos.video_name == filename)
+            stmt = select(Download_videos).where(Download_videos.location == normalized_location)
             result = await session.execute(stmt)
-            return result.scalars().first()
+            video = result.scalars().first()
+            if video and video.chunks:
+                return video
+            return None
 
 async def save_chunk_to_db(video_id, video_uuid, file_path):
     async with async_session() as session:
         async with session.begin():
             new_chunk = AudioChunks(
-                video_id=video_id,  # Save using video_id
-                video_uuid=video_uuid,  # Save using video_uuid
+                video_id=video_id,  
+                video_uuid=video_uuid,  
                 file_path=file_path
             )
             session.add(new_chunk)
         await session.commit()
 
-async def save_video_to_db(file_uuid, filename):
+async def save_video_to_db(file_uuid, filename, file_location):
     async with async_session() as session:
         async with session.begin():
+            # Insert the new video
             new_video = Download_videos(
                 uuid=file_uuid,
                 video_name=filename,
-                video_url='',  # If URL is not available, set it accordingly
-                location=''  # Set the location if needed
+                video_url='',  
+                location=os.path.normpath(file_location)  # Normalize file path before saving
             )
             session.add(new_video)
-        await session.flush()  # This will allow us to access new_video.id without committing
-            # Return the new video's id
-        return new_video.id
+            await session.flush()  
+            return new_video.id  # Return the new video's id
 
 async def process_single_audio(input_file, output_base_directory):
+    # Include file extension in filename
     filename = os.path.basename(input_file)
+    file_location = os.path.normpath(input_file)  # Use normalized full file path
 
-    # Check if this audio file has already been processed
-    processed_video = await check_if_processed(filename)
+    # Check if this audio file has already been processed using the file path
+    processed_video = await check_if_processed(file_location)
     if processed_video:
         print(f"Skipping {filename} as it has already been processed.")
         return
@@ -102,7 +109,7 @@ async def process_single_audio(input_file, output_base_directory):
     file_uuid = str(uuid.uuid4())
 
     # Save the video to the database and get the video ID
-    video_id = await save_video_to_db(file_uuid, filename)
+    video_id = await save_video_to_db(file_uuid, filename, file_location)
 
     # Create a folder named after the UUID
     uuid_directory = os.path.join(output_base_directory, file_uuid)
@@ -118,7 +125,7 @@ async def process_single_audio(input_file, output_base_directory):
         print(f"Saved {chunk_filename}, duration: {len(chunk) / 1000:.2f} seconds")
 
         # Save chunk info to the database
-        await save_chunk_to_db(video_id, file_uuid, chunk_filename)  # Use video_id and video_uuid
+        await save_chunk_to_db(video_id, file_uuid, chunk_filename)  
 
     print(f"All chunks for {filename} have been saved in the folder: {uuid_directory}")
 

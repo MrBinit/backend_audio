@@ -1,4 +1,3 @@
-# audio_download.py
 import yt_dlp
 import uuid
 import os
@@ -64,7 +63,7 @@ async def download_audio(query: str, is_url: bool):
 
             # Sanitize the video title and prepare the file name
             video_title_sanitized = sanitize_filename(video_title)
-            file_name = f"{video_title_sanitized}.mp3"
+            file_name = f"{video_title_sanitized}"
             file_path = os.path.join(output_directory, file_name)
 
             # Check if the file already exists in the directory

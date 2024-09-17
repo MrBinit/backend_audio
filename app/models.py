@@ -10,7 +10,7 @@ class Download_videos(Base):
     uuid = Column(String, unique=True, index=True) 
     video_name = Column(String, index=True)
     video_url = Column(String, index=True)
-    location = Column(String)
+    location = Column(String, unique = True)
 
     # Establish relationship with AudioChunks
     chunks = relationship("AudioChunks", backref="video")
