@@ -22,3 +22,5 @@ class AudioChunks(Base):
     video_uuid = Column(String, nullable=False) 
     file_path = Column(String, nullable=False)
     transcribe = Column(Text, nullable=True)  
+
+
