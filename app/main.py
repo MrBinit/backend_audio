@@ -1,12 +1,13 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException
 from app.audio_download import download_audio
 from app.audio_chunker import process_all_audios
-from app.database import engine, async_session
+from app.database import engine
 from app.models import Base
 from app.topics import topics_to_download
 import os
 from app.core.config import ORIGINAL_DIRECTORY, CHUNK_OUTPUT
 from app.transcribe import transcribe_chunks
+from app.huggingface_handler import insert_data_to_postgres
 
 app = FastAPI()
 
@@ -44,3 +45,12 @@ async def chunk_audios():
 async def transcribe_audio_chunks():
     result = await transcribe_chunks()
     return result
+
+@app.post("/load_dataset_to_db/")
+async def load_dataset_to_db(dataset_name: str = Query(..., description="Name of the dataset to load"), 
+                             table_name: str = Query(..., description="Name of the table to create")):
+    try:
+        result = await insert_data_to_postgres(dataset_name, table_name)
+        return {"message": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

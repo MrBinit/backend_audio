@@ -21,4 +21,11 @@ Base = declarative_base()
 
 
 
+
+# Function to create tables in the database
+async def create_tables():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
 # postgresql+asyncpg://postgres:admin123@localhost:5432/binit

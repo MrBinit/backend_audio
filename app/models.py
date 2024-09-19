@@ -3,6 +3,8 @@ import uuid
 from sqlalchemy import Column, String, ForeignKey, Integer, Text
 from sqlalchemy.orm import relationship
 from app.database import Base
+import pandas as pd
+from datasets import load_dataset
 
 class Download_videos(Base):
     __tablename__ = "download_videos"
@@ -22,5 +24,6 @@ class AudioChunks(Base):
     video_uuid = Column(String, nullable=False) 
     file_path = Column(String, nullable=False)
     transcribe = Column(Text, nullable=True)  
+
 
 
