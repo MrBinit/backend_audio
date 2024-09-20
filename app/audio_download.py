@@ -12,43 +12,28 @@ from app.database import async_session
 def sanitize_filename(s):
     return re.sub(r'[\\/*?:"<>|]', "_", s)
 
-async def download_audio(query: str, is_url: bool, format_choice: str = "mp3"):
+async def download_audio(query: str, is_url: bool, use_sample_rate_16000: bool = False):
     output_directory = ORIGINAL_DIRECTORY
 
     # Create the output directory if it doesn't exist
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-    # Set options for yt-dlp based on format choice
-    if format_choice == "mp3":
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
-            'outtmpl': f'{output_directory}/%(title)s.%(ext)s',
-            'quiet': True,
-            'noplaylist': True
-        }
-    elif format_choice == "wav":
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'wav',
-            }],
-            'postprocessor_args': [
-                '-ar', '16000',  # Set sample rate to 16000 Hz
-                '-ac', '1'       # Convert to mono channel
-            ],
-            'outtmpl': f'{output_directory}/%(title)s.%(ext)s',
-            'quiet': True,
-            'noplaylist': True
-        }
-    else:
-        raise HTTPException(status_code=400, detail="Invalid format choice. Please select 'mp3' or 'wav'.")
+    # Set options for yt-dlp to save audio in WAV format
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'wav',
+        }],
+        'outtmpl': f'{output_directory}/%(title)s.%(ext)s',
+        'quiet': True,
+        'noplaylist': True
+    }
+
+    # If the user opts for a sample rate of 16000, add corresponding FFmpeg arguments
+    if use_sample_rate_16000:
+        ydl_opts['postprocessor_args'] = ['-ar', '16000', '-ac', '1']  # Set sample rate to 16000 Hz and convert to mono
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -81,7 +66,7 @@ async def download_audio(query: str, is_url: bool, format_choice: str = "mp3"):
 
             # Sanitize the video title and prepare the file name
             video_title_sanitized = sanitize_filename(video_title)
-            file_name = f"{video_title_sanitized}.{format_choice}"
+            file_name = f"{video_title_sanitized}.wav"
             file_path = os.path.join(output_directory, file_name)
 
             # Check if the file already exists in the directory

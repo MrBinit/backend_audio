@@ -30,10 +30,11 @@ async def download_all_audios():
 @app.get("/download_audio_by_url")
 async def download_audio_by_url(
     youtube_url: str = Query(..., description="The YouTube video URL to download"), 
-    format_choice: str = Query("mp3", description="Choose the audio format: mp3 or wav")
+    use_sample_rate_16000: bool = Query(False, description="Set the sample rate to 16000 Hz and mono audio (True or False)")
 ):
-    result = await download_audio(query=youtube_url, is_url=True, format_choice=format_choice)
+    result = await download_audio(query=youtube_url, is_url=True, use_sample_rate_16000=use_sample_rate_16000)
     return result
+
 
 
 @app.post("/chunk_audios")
