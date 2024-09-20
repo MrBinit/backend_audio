@@ -62,7 +62,10 @@ async def check_if_processed(file_location):
         async with session.begin():
             stmt = select(Download_videos).where(Download_videos.location == normalized_location)
             result = await session.execute(stmt)
-            return result.scalars().first()
+            video = result.scalars().first()
+            if video and video.chunks:
+                return video
+            return None
 
 async def save_chunk_to_db(video_id, video_uuid, file_path):
     async with async_session() as session:
@@ -132,8 +135,6 @@ async def process_all_audios(input_directory, output_base_directory):
         for file in files:
             if file.lower().endswith(('.mp3', '.wav', '.flac', '.ogg')):
                 input_file = os.path.join(root, file)
-                # Add logging to debug duplication
-                print(f"Checking if file {file} has been processed.")
                 await process_single_audio(input_file, output_base_directory)
                 results.append(file)
     return results
