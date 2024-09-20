@@ -16,10 +16,16 @@ def chunk_audio(input_file,
                 max_duration=18000,  
                 target_dbfs=-40,
                 keep_silence=500, 
-                overlap=0):
+                overlap=0,
+                use_sample_rate_16000=False):
     try:
         # Load the audio file
         audio = AudioSegment.from_file(input_file)
+        
+        # If the user has opted for 16000 Hz sample rate, resample and convert to mono
+        if use_sample_rate_16000:
+            audio = audio.set_frame_rate(16000).set_channels(1)
+
     except Exception as e:
         print(f"Error loading audio file: {e}")
         return []
@@ -92,7 +98,7 @@ async def save_video_to_db(file_uuid, filename, file_location):
             await session.flush()  
             return new_video.id  # Return the new video's id
 
-async def process_single_audio(input_file, output_base_directory):
+async def process_single_audio(input_file, output_base_directory, use_sample_rate_16000=False):
     # Include file extension in filename
     filename = os.path.basename(input_file)
     file_location = os.path.normpath(input_file)  # Use normalized full file path
@@ -115,13 +121,13 @@ async def process_single_audio(input_file, output_base_directory):
     uuid_directory = os.path.join(output_base_directory, file_uuid)
     os.makedirs(uuid_directory, exist_ok=True)
 
-    # Chunk the audio
-    chunks = chunk_audio(input_file, min_duration=6000, max_duration=18000, target_dbfs=-40, keep_silence=500, overlap=1000)
+    # Chunk the audio with the option for 16000 Hz sample rate and mono channel
+    chunks = chunk_audio(input_file, min_duration=6000, max_duration=18000, target_dbfs=-40, keep_silence=500, overlap=1000, use_sample_rate_16000=use_sample_rate_16000)
 
     # Save chunks in the UUID-named folder and to the database
     for i, chunk in enumerate(chunks):
-        chunk_filename = os.path.join(uuid_directory, f"chunk_{i+1}.mp3")
-        chunk.export(chunk_filename, format="mp3")
+        chunk_filename = os.path.join(uuid_directory, f"chunk_{i+1}.wav")
+        chunk.export(chunk_filename, format="wav")  # Save in WAV format
         print(f"Saved {chunk_filename}, duration: {len(chunk) / 1000:.2f} seconds")
 
         # Save chunk info to the database
@@ -129,12 +135,12 @@ async def process_single_audio(input_file, output_base_directory):
 
     print(f"All chunks for {filename} have been saved in the folder: {uuid_directory}")
 
-async def process_all_audios(input_directory, output_base_directory):
+async def process_all_audios(input_directory, output_base_directory, use_sample_rate_16000=False):
     results = []
     for root, dirs, files in os.walk(input_directory):
         for file in files:
-            if file.lower().endswith(('.mp3', '.wav', '.flac', '.ogg')):
+            if file.lower().endswith(('.wav', '.flac', '.ogg')):  # Only process WAV, FLAC, OGG
                 input_file = os.path.join(root, file)
-                await process_single_audio(input_file, output_base_directory)
+                await process_single_audio(input_file, output_base_directory, use_sample_rate_16000=use_sample_rate_16000)
                 results.append(file)
     return results
