@@ -15,7 +15,7 @@ def chunk_audio(input_file,
                 min_duration=6000,  
                 max_duration=18000,  
                 target_dbfs=-40,
-                keep_silence=500, 
+                keep_silence=100, 
                 overlap=0,
                 use_sample_rate_16000=False):
     try:
@@ -35,7 +35,7 @@ def chunk_audio(input_file,
 
     # Split audio into chunks based on silence
     chunks = split_on_silence(audio, 
-                              min_silence_len=500, 
+                              min_silence_len=100, 
                               silence_thresh=silence_thresh, 
                               keep_silence=keep_silence)
 

@@ -1,7 +1,10 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from app.core.config import POSTGRES_PASSWORD, POSTGRES_DB,POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER
+from app.core.config import POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER
+from sqlalchemy import MetaData, text
+import pandas as pd
+from sqlalchemy.exc import SQLAlchemyError
 
 # Database configuration
 DATABASE_URL = f'postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}'
@@ -19,13 +22,22 @@ async_session = sessionmaker(
 # Base model
 Base = declarative_base()
 
-
-
-
 # Function to create tables in the database
 async def create_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-
-# postgresql+asyncpg://postgres:admin123@localhost:5432/binit
+# Define a function to fetch data from PostgreSQL
+async def fetch_data(table_name):
+    try:
+        # Open a new session
+        async with async_session() as session:
+            # Construct a dynamic SQL query
+            query = text(f'SELECT * FROM {table_name}')
+            result = await session.execute(query)
+            df = pd.DataFrame(result.fetchall(), columns=result.keys())
+        
+        return df
+    except SQLAlchemyError as e:
+        print(f"Error fetching data from PostgreSQL: {e}")
+        return None
