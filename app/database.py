@@ -5,6 +5,8 @@ from app.core.config import POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST, POSTG
 from sqlalchemy import MetaData, text
 import pandas as pd
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncAttrs
+
 
 # Database configuration
 DATABASE_URL = f'postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}'
@@ -20,7 +22,7 @@ async_session = sessionmaker(
 )
 
 # Base model
-Base = declarative_base()
+Base = declarative_base(cls=AsyncAttrs)
 
 # Function to create tables in the database
 async def create_tables():
