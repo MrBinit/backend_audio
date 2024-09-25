@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, HTTPException
 from app.audio_download import download_audio
-from app.audio_chunker import split_audio_with_silence
+from app.audio_chunker import process_all_audios
 from app.database import engine
 from app.models import Base
 from app.topics import topics_to_download
@@ -9,7 +9,6 @@ from app.core.config import ORIGINAL_DIRECTORY, CHUNK_OUTPUT
 from app.transcribe import transcribe_chunks
 from app.huggingface_handler import insert_data_to_postgres, upload_to_huggingface
 import asyncio
-import os
 
 app = FastAPI()
 
@@ -37,13 +36,13 @@ async def download_audio_by_url(
     result = await download_audio(query=youtube_url, is_url=True, use_sample_rate_16000=use_sample_rate_16000)  # Add 'await'
     return result
 
-# @app.post("/chunk_audios")
-# async def chunk_audios():
-#     input_directory = ORIGINAL_DIRECTORY
-#     output_directory = CHUNK_OUTPUT
+@app.post("/chunk_audios")
+async def chunk_audios():
+    input_directory = ORIGINAL_DIRECTORY
+    output_directory = CHUNK_OUTPUT
     
-#     processed_files = await split_audio_with_silence(input_directory, output_directory) 
-#     return {"processed_files": processed_files}
+    processed_files = process_all_audios(input_directory, output_directory)  # Add 'await'
+    return {"processed_files": processed_files}
 
 @app.post("/transcribe_chunks")
 async def transcribe_audio_chunks():
@@ -75,24 +74,3 @@ async def upload_data(table_name: str):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
-
-@app.post("/chunk_audios")
-async def chunk_audios():
-    input_directory = ORIGINAL_DIRECTORY
-    output_directory = CHUNK_OUTPUT
-    processed_files = []
-
-    # Loop through each file in the input directory
-    for file_name in os.listdir(input_directory):
-        file_path = os.path.join(input_directory, file_name)
-        
-        if os.path.isfile(file_path):
-            # Call the split_audio_with_silence function
-            result = split_audio_with_silence(file_path, output_directory)
-            
-            # Check if result is a valid list (even if it's empty, that's fine)
-            if result:
-                processed_files.extend(result)
-
-    return {"processed_files": processed_files}
