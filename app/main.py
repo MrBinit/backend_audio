@@ -41,7 +41,7 @@ async def chunk_audios():
     input_directory = ORIGINAL_DIRECTORY
     output_directory = CHUNK_OUTPUT
     
-    processed_files = process_all_audios(input_directory, output_directory)  # Add 'await'
+    processed_files = await process_all_audios(input_directory, output_directory)  # Add 'await'
     return {"processed_files": processed_files}
 
 @app.post("/transcribe_chunks")
