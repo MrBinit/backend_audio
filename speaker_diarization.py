@@ -3,6 +3,7 @@ from pydub import AudioSegment
 from pydub.silence import split_on_silence
 from pyannote.audio import Pipeline
 import os
+import torch
 
 # Step 1: Download audio from YouTube using yt-dlp
 def download_audio(youtube_url):
@@ -98,6 +99,38 @@ def save_filtered_chunks(filtered_chunks):
         chunk_audio.export(output_path, format='wav')
         print(f'Saved filtered chunk: {output_path}')
 
+# Step 5: Calculate total duration and total voice duration for each filtered chunk
+def calculate_durations(filtered_chunks, model, get_speech_timestamps, read_audio, sampling_rate=16000):
+    chunk_durations = []  # List to store actual and voice durations for each chunk
+
+    for chunk_file in filtered_chunks:
+        # Load the chunk with pydub to get its duration in milliseconds
+        chunk_audio = AudioSegment.from_file(chunk_file)
+        actual_duration = len(chunk_audio) / 1000  # Convert milliseconds to seconds
+
+        # Load chunk audio for Silero VAD processing
+        wav = read_audio(chunk_file, sampling_rate=sampling_rate)
+        
+        # Get the speech timestamps using Silero VAD
+        speech_timestamps = get_speech_timestamps(wav, model, sampling_rate=sampling_rate)
+        
+        # Calculate voice duration using Silero VAD
+        voice_duration = 0
+        for segment in speech_timestamps:
+            start_sample = segment['start']
+            end_sample = segment['end']
+            segment_duration = (end_sample - start_sample) / sampling_rate  # Convert samples to seconds
+            voice_duration += segment_duration
+
+        # Store the actual and voice duration for this chunk
+        chunk_durations.append({
+            'chunk': chunk_file,
+            'actual_duration': actual_duration,
+            'voice_duration': voice_duration
+        })
+
+    return chunk_durations
+
 # Main function to process audio from YouTube, split into dynamic chunks, and analyze speakers
 def process_audio_from_youtube(youtube_url, hf_token):
     # Step 1: Download YouTube audio
@@ -114,6 +147,20 @@ def process_audio_from_youtube(youtube_url, hf_token):
     
     # Step 5: Save the filtered chunks to a new directory
     save_filtered_chunks(filtered_chunks)
+
+    # Step 6: Load Silero VAD model and calculate total voice duration
+    model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad', model='silero_vad', force_reload=True)
+    (get_speech_timestamps, _, read_audio, *_) = utils
+
+    # Step 7: Calculate both total chunk duration and total voice duration for each chunk
+    chunk_durations = calculate_durations(filtered_chunks, model, get_speech_timestamps, read_audio)
+
+    # Step 8: Print individual chunk durations
+    for chunk_info in chunk_durations:
+        print(f"Chunk: {chunk_info['chunk']}")
+        print(f"  Actual Duration: {chunk_info['actual_duration']:.2f} seconds")
+        print(f"  Voice Duration (using Silero VAD): {chunk_info['voice_duration']:.2f} seconds")
+        print("")
 
 # Example usage
 if __name__ == '__main__':
