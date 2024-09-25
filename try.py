@@ -1,65 +1,55 @@
-from pydub import AudioSegment
-from pydub.silence import split_on_silence, detect_nonsilent
 import os
+import requests
+from app.core.config import CHUNK_OUTPUT  # Assuming CHUNK_OUTPUT is the root directory
 
-def split_audio_with_silence(audio_file, output_dir):
-    # Load the audio file
-    audio = AudioSegment.from_wav(audio_file)
-    
-    # Set parameters
-    silence_duration = 1000  # Initial silence duration (1 second)
-    max_chunk_size = 18 * 1000  # Max chunk size (18 seconds)
-    min_chunk_size = 5 * 1000  # Min chunk size (5 seconds)
-    
-    # Detect non-silent segments but with some silence retained
-    nonsilent_ranges = detect_nonsilent(audio, min_silence_len=silence_duration, silence_thresh=-40, seek_step=100)
-    
-    # Debug: check detected nonsilent ranges
-    print(f"Detected nonsilent ranges: {nonsilent_ranges}")
-    
-    final_chunks = []
-    
-    for start, end in nonsilent_ranges:
-        chunk = audio[start:end]
+# API endpoint
+url = "http://192.168.88.10:8028/transcribe/"
+
+# Text file to save transcriptions
+output_file_path = os.path.join(CHUNK_OUTPUT, "transcriptions.txt")
+
+# Function to transcribe an audio file
+def transcribe_audio(audio_file_path):
+    with open(audio_file_path, 'rb') as audio_file:
+        # Send the POST request with the audio file
+        files = {'audio': audio_file}
+        response = requests.post(url, files=files)
         
-        # Debug: print chunk size
-        print(f"Processing chunk from {start} to {end} with length: {len(chunk)} ms")
+        if response.status_code == 200:
+            return response.json()  # Assuming the API returns the transcription as JSON
+        else:
+            print(f"Failed to transcribe {audio_file_path}. Status code: {response.status_code}")
+            print(f"Response: {response.text}")
+            return None
+
+# Function to traverse directories recursively and find all audio files
+def find_audio_files(directory):
+    audio_files = []
+    # Walk through the directory and subdirectories
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith(".wav"):  # Only process .wav files
+                audio_files.append(os.path.join(root, file))
+    return audio_files
+
+# Main logic
+with open(output_file_path, 'w') as output_file:
+    # Find all audio files recursively in CHUNK_OUTPUT
+    audio_files = find_audio_files(CHUNK_OUTPUT)
+
+    # Process each audio file
+    for audio_file_path in audio_files:
+        print(f"Transcribing {audio_file_path}...")
         
-        # If the chunk is within the min and max size, keep silence
-        if min_chunk_size <= len(chunk) <= max_chunk_size:
-            final_chunks.append(chunk)
-        elif len(chunk) > max_chunk_size:
-            # Further split the chunk if it's too large, keeping silence
-            split_chunks = split_on_silence(chunk, min_silence_len=silence_duration, silence_thresh=-40, keep_silence=500)
-            
-            for sub_chunk in split_chunks:
-                if min_chunk_size <= len(sub_chunk) <= max_chunk_size:
-                    final_chunks.append(sub_chunk)
-                else:
-                    # Debug: print ignored subchunks
-                    print(f"Ignoring subchunk of length {len(sub_chunk)} ms")
-    
-    # Check if we have valid chunks to save
-    if not final_chunks:
-        print("No valid chunks detected")
-    
-    # Export the final chunks with some silence retained
-    for i, final_chunk in enumerate(final_chunks):
-        output_path = os.path.join(output_dir, f"chunk_{i+1}.wav")
+        # Transcribe the audio file
+        transcription = transcribe_audio(audio_file_path)
         
-        # Try-catch block to capture any export errors
-        try:
-            final_chunk.export(output_path, format="wav")
-            print(f"Exported chunk {i+1} to {output_path}")
-        except Exception as e:
-            print(f"Failed to export chunk {i+1}: {str(e)}")
+        # If transcription is successful, save to file
+        if transcription:
+            output_file.write(f"Transcription for {audio_file_path}:\n")
+            output_file.write(transcription + "\n\n")  # Save the transcription
+            print(f"Transcription saved for {audio_file_path}")
+        else:
+            output_file.write(f"Transcription failed for {audio_file_path}\n\n")
 
-# Define file paths
-audio_file = "/Users/mrbinit/Desktop/audio_backend/datasets/a.wav"
-output_dir = "/Users/mrbinit/Desktop/audio_backend/output"
-
-# Ensure output directory exists
-os.makedirs(output_dir, exist_ok=True)
-
-# Split the audio with retained silence
-split_audio_with_silence(audio_file, output_dir)
+print(f"All transcriptions saved to {output_file_path}")
