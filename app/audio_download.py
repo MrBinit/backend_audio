@@ -20,7 +20,7 @@ def get_next_video_name(directory):
     video_numbers = [int(re.findall(r'\d+', f)[0]) for f in existing_files if re.findall(r'\d+', f)]
     
     next_video_number = max(video_numbers) + 1 if video_numbers else 1
-    return f"video{next_video_number}.wav"
+    return f"video{next_video_number}"  # Return only the name without extension
 
 async def download_audio(query: str, is_url: bool, use_sample_rate_16000: bool = False):
     output_directory = ORIGINAL_DIRECTORY
@@ -29,9 +29,9 @@ async def download_audio(query: str, is_url: bool, use_sample_rate_16000: bool =
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-    # Generate the next available video name (video1, video2, etc.)
+    # Generate the next available video name (e.g., "video1", "video2", etc.)
     file_name = get_next_video_name(output_directory)
-    file_path = os.path.join(output_directory, file_name)
+    file_path = os.path.join(output_directory, file_name)  # Add ".wav" here once
 
     # Set options for yt-dlp to save audio in WAV format and directly name the file as 'videoX.wav'
     ydl_opts = {
@@ -40,10 +40,11 @@ async def download_audio(query: str, is_url: bool, use_sample_rate_16000: bool =
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'wav',
         }],
-        'outtmpl': f'{file_path}',  # Directly set the output template to the desired videoX.wav name
+        'outtmpl': f'{file_path}',  # Set output template with .wav extension
         'quiet': True,
         'noplaylist': True
     }
+    file_path_with_extension = f"{file_path}.wav"
 
     # If the user opts for a sample rate of 16000, add corresponding FFmpeg arguments
     if use_sample_rate_16000:
@@ -101,14 +102,14 @@ async def download_audio(query: str, is_url: bool, use_sample_rate_16000: bool =
             # Generate a UUID for the video
             video_uuid = str(uuid.uuid4())
 
-            # Save video info to the database with the original name and file location
+            # Save video info to the database with the original name and full path of the file
             async with async_session() as session:
                 async with session.begin():
                     new_video = Download_videos(
                         uuid=video_uuid,
                         video_url=video_url,
                         video_name=video_title,  # Save the original name in the database
-                        location=file_path,       # Save the file path with the new name (videoX.wav)
+                        location=file_path_with_extension,       # Save the full path (including directory and .wav extension)
                         meta_data=meta_data,
                         chunk_status="False"
                     )
@@ -122,7 +123,7 @@ async def download_audio(query: str, is_url: bool, use_sample_rate_16000: bool =
                 "uuid": video_uuid,
                 "video_name": video_title,  # Return the original title as the video name
                 "video_url": video_url,
-                "location": file_path        # File location where the renamed file is stored
+                "location": {file_path}  # Return the full path with .wav extension
             }
     except Exception as e:
         print(f"Failed to download audio for query {query}. Error: {e}")
