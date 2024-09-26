@@ -89,14 +89,19 @@ async def get_audio_location(uuid: str = Query(..., description = "UUID of the a
 
 @app.post("/split-audio/{uuid}")
 async def split_audio(uuid: str):
-    video_info = await audio_chunker(uuid)
+    # Call the audio_chunker function which will handle chunking and database saving
+    video_info = await audio_chunker(uuid, CHUNK_OUTPUT)
+
+    # If an error occurs in audio_chunker, raise an HTTPException
     if "error" in video_info:
-        raise HTTPException(status_code= 404, detail = video_info["error"])
-    video_location = video_info['location']
-    if not os.path.exists(CHUNK_OUTPUT):
-        os.makedirs(CHUNK_OUTPUT)
+        raise HTTPException(status_code=404, detail=video_info["error"])
+
+    # Retrieve the paths of the split audio chunks
+    chunk_paths = video_info.get("chunks")
     
-    chunk_paths = split_audio_with_silence(video_location, CHUNK_OUTPUT)
     if not chunk_paths:
-        raise HTTPException(status_code = 500, detail = "Failed to split the audio")
-    return{"chunk_paths": chunk_paths}
+        raise HTTPException(status_code=500, detail="Failed to split the audio into chunks")
+
+    # Return the paths of the saved chunks
+    return {"chunk_paths": chunk_paths}
+

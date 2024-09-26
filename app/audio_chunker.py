@@ -3,11 +3,11 @@ from pydub import AudioSegment
 from pydub.silence import detect_nonsilent, split_on_silence
 from sqlalchemy.future import select
 from sqlalchemy.exc import SQLAlchemyError
-from app.models import Download_videos
+from app.models import Download_videos, AudioChunks
 from app.database import async_session
 
 # Fetch video from database using UUID and return its location
-async def audio_chunker(uuid):
+async def audio_chunker(uuid, output_dir):
     try:
         async with async_session() as session:
             async with session.begin():
@@ -16,9 +16,27 @@ async def audio_chunker(uuid):
                 video = result.scalars().first()
                 
                 if video:
-                    # If the video exists, display the file location
-                    print(f"File location for UUID {uuid}: {video.location}")
-                    return {"location": video.location}
+                    #Create output directory using the UUID of the video
+                    output_dir = os.path.join(output_dir, uuid)
+
+                    #ensure the output directory exist
+                    if not os.path.exists(output_dir):
+                        os.makedirs(output_dir)
+                    print(f"Saving chunks in directory: {output_dir}")
+
+                    # # If the video exists, display the file location and process audio
+                    # print(f"File location for UUID {uuid}: {video.location}")
+                    audio_chunks = split_audio_with_silence(video.location, output_dir)
+
+                    # Save each chunk to the database
+                    if audio_chunks:
+                        await save_chunks_to_db(uuid, video.id, audio_chunks)
+                    
+                    # Update chunk_status in the Download_videos table
+                    video.chunk_status = "True"
+                    await session.commit()
+
+                    return {"location": video.location, "chunks": audio_chunks}
                 else:
                     print(f"No video found with UUID {uuid}")
                     return {"error": "No video found with this UUID"}
@@ -30,6 +48,9 @@ async def audio_chunker(uuid):
 def split_audio_with_silence(audio_file, output_dir):
     """Split audio file based on silence and export chunks."""
     try:
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
         # Load audio file
         audio = AudioSegment.from_wav(audio_file)
 
@@ -68,7 +89,7 @@ def split_audio_with_silence(audio_file, output_dir):
                     if min_chunk_size <= len(sub_chunk) <= max_chunk_size:
                         final_chunks.append(sub_chunk)
 
-        # Export chunks to the output directory
+        # Export chunks to the output directory and return paths
         if not final_chunks:
             print("No chunks created after processing.")
             return []
@@ -85,3 +106,21 @@ def split_audio_with_silence(audio_file, output_dir):
         print(f"Error splitting audio: {e}")
         return []
 
+# Save audio chunks to the database
+async def save_chunks_to_db(video_uuid, video_id, chunk_paths):
+    """Save each chunk's metadata to the AudioChunks table."""
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                for chunk_path in chunk_paths:
+                    new_chunk = AudioChunks(
+                        video_id=video_id,
+                        video_uuid=video_uuid,
+                        file_path=chunk_path
+                    )
+                    session.add(new_chunk)
+            await session.commit()
+            print(f"Audio chunks saved to database for video UUID: {video_uuid}")
+    except SQLAlchemyError as e:
+        print(f"Error saving chunks to database: {e}")
+        raise
