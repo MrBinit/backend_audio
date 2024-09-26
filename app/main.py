@@ -10,6 +10,9 @@ from app.transcribe import transcribe_chunks
 from app.huggingface_handler import insert_data_to_postgres, upload_to_huggingface
 from app.audio_chunker import audio_chunker, split_audio_with_silence
 import os
+from sqlalchemy.future import select
+from app.models import Download_videos
+from app.database import async_session
 app = FastAPI()
 
 # Ensure the table is created on startup
@@ -104,4 +107,33 @@ async def split_audio(uuid: str):
 
     # Return the paths of the saved chunks
     return {"chunk_paths": chunk_paths}
+
+@app.get("/check_and_chunk_all")
+async def check_and_chunk_all():
+    try:
+        processed_videos = []
+
+        async with async_session() as session:
+            async with session.begin():
+                stmt = select(Download_videos).where(Download_videos.chunk_status == 'False')
+                result = await session.execute(stmt)
+                videos_to_process = result.scalars().all()
+
+                if not videos_to_process:
+                    return {"message": "No audio to chunk. All audios are already chunked."}
+                for video in videos_to_process:
+                    response = await audio_chunker(video.uuid, CHUNK_OUTPUT)
+                    processed_videos.append({
+                        "video_uuid": video.uuid,
+                        "status": response.get("Message", "Complete"),
+                        "chunks": response.get("chunks", [])
+                    })
+            return {
+                "message" : f"Processed {len(processed_videos)} videos",
+                "processed_videos": processed_videos
+            }
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(status_code= 500, detail = "An error occured while processing the request")
+
 
