@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, HTTPException
 from app.audio_download import download_audio
-from app.audio_chunker import process_all_audios
+# from app.audio_chunker import process_all_audios
 from app.database import engine
 from app.models import Base
 from app.topics import topics_to_download
@@ -8,8 +8,8 @@ from app.database import fetch_data
 from app.core.config import ORIGINAL_DIRECTORY, CHUNK_OUTPUT
 from app.transcribe import transcribe_chunks
 from app.huggingface_handler import insert_data_to_postgres, upload_to_huggingface
-import asyncio
-
+from app.audio_chunker import audio_chunker, split_audio_with_silence
+import os
 app = FastAPI()
 
 # Ensure the table is created on startup
@@ -36,13 +36,13 @@ async def download_audio_by_url(
     result = await download_audio(query=youtube_url, is_url=True, use_sample_rate_16000=use_sample_rate_16000)  # Add 'await'
     return result
 
-@app.post("/chunk_audios")
-async def chunk_audios():
-    input_directory = ORIGINAL_DIRECTORY
-    output_directory = CHUNK_OUTPUT
+# @app.post("/chunk_audios/")
+# async def chunk_audios():
+#     input_directory = ORIGINAL_DIRECTORY
+#     output_directory = CHUNK_OUTPUT
     
-    processed_files = await process_all_audios(input_directory, output_directory)  # Add 'await'
-    return {"processed_files": processed_files}
+#     processed_files = await process_all_audios(input_directory, output_directory)  # Add 'await'
+#     return {"processed_files": processed_files}
 
 @app.post("/transcribe_chunks")
 async def transcribe_audio_chunks():
@@ -74,3 +74,29 @@ async def upload_data(table_name: str):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/get_audio_location/")
+async def get_audio_location(uuid: str = Query(..., description = "UUID of the audio")):
+    try:
+        result = await audio_chunker(uuid)
+        if 'location' not in result:
+            raise HTTPException (status_code = 404, detail= result.get("error", "No video found with this UUID"))
+        return {"file_location": result['location']}
+    except Exception as e:
+        raise HTTPException(status_code= 500, detail= str(e))
+    
+
+
+@app.post("/split-audio/{uuid}")
+async def split_audio(uuid: str):
+    video_info = await audio_chunker(uuid)
+    if "error" in video_info:
+        raise HTTPException(status_code= 404, detail = video_info["error"])
+    video_location = video_info['location']
+    if not os.path.exists(CHUNK_OUTPUT):
+        os.makedirs(CHUNK_OUTPUT)
+    
+    chunk_paths = split_audio_with_silence(video_location, CHUNK_OUTPUT)
+    if not chunk_paths:
+        raise HTTPException(status_code = 500, detail = "Failed to split the audio")
+    return{"chunk_paths": chunk_paths}

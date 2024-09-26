@@ -2,7 +2,7 @@ import uuid
 from sqlalchemy import Column, String, ForeignKey, Integer, Text
 from sqlalchemy.orm import relationship
 from app.database import Base
-
+from sqlalchemy import JSON
 class Download_videos(Base):
     __tablename__ = "download_videos"
     id = Column(Integer, primary_key=True, autoincrement=True) 
@@ -10,6 +10,8 @@ class Download_videos(Base):
     video_name = Column(String, index=True)
     video_url = Column(String, index=True, nullable=True)  # Optional URL field
     location = Column(String, unique=True, nullable=False)  # Path to local file
+    meta_data = Column(JSON, nullable = False, default = {})
+    chunk_status = Column(String, nullable = True,default = "False")
 
     # Establish relationship with AudioChunks
     chunks = relationship("AudioChunks", backref="video")
