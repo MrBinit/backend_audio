@@ -22,7 +22,7 @@ def get_next_video_name(directory):
     next_video_number = max(video_numbers) + 1 if video_numbers else 1
     return f"video{next_video_number}"  # Return only the name without extension
 
-async def download_audio(query: str, is_url: bool, use_sample_rate_16000: bool = False):
+async def download_audio(query: str, is_url: bool, use_sample_rate_16000: bool = False, topic_name: str = None):
     output_directory = ORIGINAL_DIRECTORY
 
     # Create the output directory if it doesn't exist
@@ -58,6 +58,7 @@ async def download_audio(query: str, is_url: bool, use_sample_rate_16000: bool =
                 info_dict = ydl.extract_info(query, download=False)  # Don't download yet to get the info
                 video_url = info_dict.get('webpage_url')
                 video_title = info_dict.get('title', 'unknown')  # Extract the original title
+                topic_name = None
             else:
                 print(f"Searching for the first audio for topic: {query}")
                 # Use ytsearch to find the first video for the topic without downloading
@@ -88,12 +89,15 @@ async def download_audio(query: str, is_url: bool, use_sample_rate_16000: bool =
             audio_codec = info_dict.get('acodec')
             audio_sample_rate = info_dict.get('asr')
 
+
             # Prepare meta dictionary
             meta_data = {
                 'audio_length(sec)': audio_length,
                 "audio_size(bytes)": audio_size,
                 "audio_codec": audio_codec,
-                "sampling_frequency(Hz)": audio_sample_rate
+                "sampling_frequency(Hz)": audio_sample_rate,
+                "genre": topic_name
+                
             }
 
             # Display the video download is completed
